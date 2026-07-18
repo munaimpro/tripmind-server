@@ -1,2 +1,2 @@
-# digicraft-server
-Digicraft Server
+# tripmind-server
+tripmind Server

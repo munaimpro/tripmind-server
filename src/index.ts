@@ -4,6 +4,7 @@ import cors from 'cors';
 import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
 dotenv.config();
 import { jwtVerify, createRemoteJWKSet } from 'jose-cjs';
+import { generateTripPlan, optimizeBudget } from './services/aiService';
 
 const mongodburi = process.env.MONGO_URI!;
 
@@ -135,7 +136,15 @@ async function run() {
 
         app.get('/me', verifyToken, async (req: Request, res: Response) => {
             try {
-                res.json({ success: true, message: "User profile data placeholder" });
+                const userPayload = (req as any).user;
+                const email = userPayload?.email;
+                
+                let user = null;
+                if (email) {
+                    user = await usersCollection.findOne({ email });
+                }
+                
+                res.json({ success: true, data: user || userPayload });
             } catch (error) {
                 res.status(500).json({ success: false, message: 'Internal Server Error' });
             }
@@ -143,7 +152,12 @@ async function run() {
 
         app.get('/my-trips', verifyToken, async (req: Request, res: Response) => {
             try {
-                res.json({ success: true, message: "User's trips placeholder" });
+                const userEmail = (req as any).user?.email;
+                if (!userEmail) {
+                    return res.status(400).json({ success: false, message: 'User email not found in token' });
+                }
+                const result = await tripsCollection.find({ userEmail }).toArray();
+                res.json({ success: true, data: result });
             } catch (error) {
                 res.status(500).json({ success: false, message: 'Internal Server Error' });
             }
@@ -151,7 +165,12 @@ async function run() {
 
         app.get('/saved-trips', verifyToken, async (req: Request, res: Response) => {
             try {
-                res.json({ success: true, message: "Saved trips placeholder" });
+                const userEmail = (req as any).user?.email;
+                if (!userEmail) {
+                    return res.status(400).json({ success: false, message: 'User email not found in token' });
+                }
+                const result = await savedTripsCollection.find({ userEmail }).toArray();
+                res.json({ success: true, data: result });
             } catch (error) {
                 res.status(500).json({ success: false, message: 'Internal Server Error' });
             }
@@ -159,7 +178,19 @@ async function run() {
 
         app.post('/saved-trips', verifyToken, async (req: Request, res: Response) => {
             try {
-                res.json({ success: true, message: "Trip saved successfully placeholder" });
+                const userEmail = (req as any).user?.email;
+                if (!userEmail) {
+                    return res.status(400).json({ success: false, message: 'User email not found in token' });
+                }
+                
+                const savedTripData = req.body;
+                const result = await savedTripsCollection.insertOne({
+                    ...savedTripData,
+                    userEmail,
+                    savedAt: new Date()
+                });
+                
+                res.json({ success: true, data: result });
             } catch (error) {
                 res.status(500).json({ success: false, message: 'Internal Server Error' });
             }
@@ -167,7 +198,23 @@ async function run() {
 
         app.delete('/saved-trips/:id', verifyToken, async (req: Request, res: Response) => {
             try {
-                res.json({ success: true, message: "Saved trip deleted successfully placeholder" });
+                const { id } = req.params;
+                const userEmail = (req as any).user?.email;
+                
+                if (!userEmail) {
+                    return res.status(400).json({ success: false, message: 'User email not found in token' });
+                }
+                
+                const result = await savedTripsCollection.deleteOne({ 
+                    _id: new ObjectId(id),
+                    userEmail 
+                });
+                
+                if (result.deletedCount === 0) {
+                    return res.status(404).json({ success: false, message: 'Saved trip not found or unauthorized' });
+                }
+                
+                res.json({ success: true, message: "Saved trip deleted successfully" });
             } catch (error) {
                 res.status(500).json({ success: false, message: 'Internal Server Error' });
             }
@@ -175,7 +222,23 @@ async function run() {
 
         app.post('/reviews', verifyToken, async (req: Request, res: Response) => {
             try {
-                res.json({ success: true, message: "Review posted successfully placeholder" });
+                const userEmail = (req as any).user?.email;
+                const userName = (req as any).user?.name || (req as any).user?.given_name || 'Anonymous';
+                
+                if (!userEmail) {
+                    return res.status(400).json({ success: false, message: 'User email not found in token' });
+                }
+                
+                const reviewData = req.body;
+                
+                const result = await reviewsCollection.insertOne({
+                    ...reviewData,
+                    userEmail,
+                    userName,
+                    createdAt: new Date()
+                });
+                
+                res.json({ success: true, data: result });
             } catch (error) {
                 res.status(500).json({ success: false, message: 'Internal Server Error' });
             }
@@ -187,17 +250,68 @@ async function run() {
 
         app.post('/ai/generate-trip', async (req: Request, res: Response) => {
             try {
-                res.json({ success: true, message: "AI generated trip plan placeholder" });
-            } catch (error) {
-                res.status(500).json({ success: false, message: 'Internal Server Error' });
+                const tripDetails = req.body;
+                
+                // Validate input simply
+                if (!tripDetails.destination || !tripDetails.budget || !tripDetails.duration) {
+                    return res.status(400).json({ success: false, message: 'Missing required trip details (destination, budget, duration)' });
+                }
+
+                // Generate trip using Gemini
+                const generatedPlan = await generateTripPlan(tripDetails);
+
+                // Save to MongoDB
+                const planToSave = {
+                    ...generatedPlan,
+                    originalRequest: tripDetails,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                };
+
+                const result = await aiPlansCollection.insertOne(planToSave);
+
+                res.json({ success: true, data: { _id: result.insertedId, ...planToSave } });
+            } catch (error: any) {
+                console.error("Generate trip error:", error);
+                res.status(500).json({ success: false, message: error.message || 'Internal Server Error' });
             }
         });
 
         app.post('/ai/optimize-budget', async (req: Request, res: Response) => {
             try {
-                res.json({ success: true, message: "AI budget optimization result placeholder" });
-            } catch (error) {
-                res.status(500).json({ success: false, message: 'Internal Server Error' });
+                const { aiPlanId, newBudget } = req.body;
+
+                if (!aiPlanId || !newBudget) {
+                    return res.status(400).json({ success: false, message: 'Missing aiPlanId or newBudget' });
+                }
+
+                // Fetch existing plan
+                const existingPlan = await aiPlansCollection.findOne({ _id: new ObjectId(aiPlanId) });
+                if (!existingPlan) {
+                    return res.status(404).json({ success: false, message: 'AI Plan not found' });
+                }
+
+                // Remove mongo specific IDs before sending to AI to avoid confusion
+                const { _id, createdAt, updatedAt, ...planDataForAi } = existingPlan;
+
+                // Optimize using Gemini
+                const optimizedPlan = await optimizeBudget(planDataForAi, newBudget);
+
+                // Update existing plan in MongoDB
+                const updateData = {
+                    ...optimizedPlan,
+                    updatedAt: new Date()
+                };
+
+                await aiPlansCollection.updateOne(
+                    { _id: new ObjectId(aiPlanId) },
+                    { $set: updateData }
+                );
+
+                res.json({ success: true, data: { _id: aiPlanId, ...updateData } });
+            } catch (error: any) {
+                console.error("Optimize budget error:", error);
+                res.status(500).json({ success: false, message: error.message || 'Internal Server Error' });
             }
         });
 

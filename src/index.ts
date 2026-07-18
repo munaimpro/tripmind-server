@@ -1,5 +1,5 @@
 import express, { NextFunction, Request, Response } from 'express';
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 import cors from 'cors';
 import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
 dotenv.config();

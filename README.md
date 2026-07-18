@@ -1,2 +1,2 @@
-# tripmind-server
-AI Travel Planner - Server
+# digicraft-server
+Digicraft Server

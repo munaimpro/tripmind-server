@@ -1,5 +1,5 @@
 import express, { NextFunction, Request, Response } from 'express';
-import * as dotenv from 'dotenv';
+import dotenv from 'dotenv';
 import cors from 'cors';
 import { MongoClient, ServerApiVersion, ObjectId } from 'mongodb';
 dotenv.config();
@@ -65,6 +65,7 @@ async function run() {
         // PUBLIC APIs
         // ==========================================
 
+        // For home page
         app.get('/destinations', async (req: Request, res: Response) => {
             try {
                 const result = await destinationsCollection.find().toArray();
@@ -74,6 +75,7 @@ async function run() {
             }
         });
 
+        
         app.get('/destinations/:id', async (req: Request, res: Response) => {
             try {
                 const { id } = req.params;
@@ -84,6 +86,7 @@ async function run() {
             }
         });
 
+        // For Explore Trips page
         app.get('/trips', async (req: Request, res: Response) => {
             try {
                 const result = await tripsCollection.find().toArray();
@@ -134,6 +137,7 @@ async function run() {
         // PROTECTED APIs
         // ==========================================
 
+        // For Profile page
         app.get('/me', verifyToken, async (req: Request, res: Response) => {
             try {
                 const userPayload = (req as any).user;
@@ -150,6 +154,7 @@ async function run() {
             }
         });
 
+        // For User Dashbaord Page - UserDashboard
         app.get('/my-trips', verifyToken, async (req: Request, res: Response) => {
             try {
                 const userEmail = (req as any).user?.email;
@@ -163,6 +168,7 @@ async function run() {
             }
         });
 
+        // For User Dashbaord Page - SavedTrips
         app.get('/saved-trips', verifyToken, async (req: Request, res: Response) => {
             try {
                 const userEmail = (req as any).user?.email;
@@ -176,6 +182,7 @@ async function run() {
             }
         });
 
+        // For User Dashbaord Page - SavedTrips
         app.post('/saved-trips', verifyToken, async (req: Request, res: Response) => {
             try {
                 const userEmail = (req as any).user?.email;
@@ -196,6 +203,7 @@ async function run() {
             }
         });
 
+        // For User Dashbaord Page - SavedTrips
         app.delete('/saved-trips/:id', verifyToken, async (req: Request, res: Response) => {
             try {
                 const { id } = req.params;
@@ -250,6 +258,7 @@ async function run() {
 
         app.post('/ai/generate-trip', async (req: Request, res: Response) => {
             try {
+                console.log("Gemini Key:", process.env.GEMINI_API_KEY);
                 const tripDetails = req.body;
                 
                 // Validate input simply

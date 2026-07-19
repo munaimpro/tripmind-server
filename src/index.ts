@@ -328,7 +328,7 @@ async function run() {
         // ADMIN APIs
         // ==========================================
 
-        app.post('/destinations', verifyToken, async (req: Request, res: Response) => {
+        app.post('/destinations', async (req: Request, res: Response) => {
             try {
                 const destinationData = req.body;
                 const result = await destinationsCollection.insertOne({

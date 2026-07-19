@@ -328,7 +328,7 @@ async function run() {
         // ADMIN APIs
         // ==========================================
 
-        app.post('/destinations', async (req: Request, res: Response) => {
+        app.post('/add-destination', async (req: Request, res: Response) => {
             try {
                 const destinationData = req.body;
                 const result = await destinationsCollection.insertOne({
@@ -342,26 +342,38 @@ async function run() {
             }
         });
 
-        app.put('/destinations/:id', verifyToken, async (req: Request, res: Response) => {
+        app.put('/destination/:id', async (req: Request, res: Response) => {
             try {
                 const { id } = req.params;
+
                 const updateData = req.body;
+
+                delete updateData._id;
+
                 const result = await destinationsCollection.updateOne(
                     { _id: new ObjectId(id) },
-                    { 
+                    {
                         $set: {
                             ...updateData,
-                            updatedAt: new Date()
-                        } 
+                            updatedAt: new Date(),
+                        },
                     }
                 );
-                res.json({ success: true, data: result });
+
+                res.json({
+                    success: true,
+                    data: result,
+                });
             } catch (error) {
-                res.status(500).json({ success: false, message: 'Internal Server Error' });
+                console.log(error);
+                res.status(500).json({
+                    success: false,
+                    message: "Internal Server Error",
+                });
             }
         });
 
-        app.delete('/destinations/:id', verifyToken, async (req: Request, res: Response) => {
+        app.delete('/delete-destination/:id', async (req: Request, res: Response) => {
             try {
                 const { id } = req.params;
                 const result = await destinationsCollection.deleteOne({ _id: new ObjectId(id) });

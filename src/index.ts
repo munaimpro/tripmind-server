@@ -79,7 +79,19 @@ async function run() {
         app.get('/destinations/:id', async (req: Request, res: Response) => {
             try {
                 const { id } = req.params;
+                console.log("ID:", id);
+
+                // MongoDB ObjectId valid কিনা তা চেক করে নেওয়া নিরাপদ
+                if (!ObjectId.isValid(id)) {
+                    return res.status(400).json({ success: false, message: 'Invalid ID format' });
+                }
+
                 const result = await destinationsCollection.findOne({ _id: new ObjectId(id) });
+
+                if (!result) {
+                    return res.status(404).json({ success: false, message: 'Destination not found' });
+                }
+
                 res.json({ success: true, data: result });
             } catch (error) {
                 res.status(500).json({ success: false, message: 'Internal Server Error' });
@@ -218,66 +230,6 @@ async function run() {
                 }
                 const result = await tripsCollection.find({ userEmail }).toArray();
                 res.json({ success: true, data: result });
-            } catch (error) {
-                res.status(500).json({ success: false, message: 'Internal Server Error' });
-            }
-        });
-
-        // For User Dashbaord Page - SavedTrips
-        app.get('/saved-trips', verifyToken, async (req: Request, res: Response) => {
-            try {
-                const userEmail = (req as any).user?.email;
-                if (!userEmail) {
-                    return res.status(400).json({ success: false, message: 'User email not found in token' });
-                }
-                const result = await savedTripsCollection.find({ userEmail }).toArray();
-                res.json({ success: true, data: result });
-            } catch (error) {
-                res.status(500).json({ success: false, message: 'Internal Server Error' });
-            }
-        });
-
-        // For User Dashbaord Page - SavedTrips
-        app.post('/saved-trips', verifyToken, async (req: Request, res: Response) => {
-            try {
-                const userEmail = (req as any).user?.email;
-                if (!userEmail) {
-                    return res.status(400).json({ success: false, message: 'User email not found in token' });
-                }
-                
-                const savedTripData = req.body;
-                const result = await savedTripsCollection.insertOne({
-                    ...savedTripData,
-                    userEmail,
-                    savedAt: new Date()
-                });
-                
-                res.json({ success: true, data: result });
-            } catch (error) {
-                res.status(500).json({ success: false, message: 'Internal Server Error' });
-            }
-        });
-
-        // For User Dashbaord Page - SavedTrips
-        app.delete('/saved-trips/:id', verifyToken, async (req: Request, res: Response) => {
-            try {
-                const { id } = req.params;
-                const userEmail = (req as any).user?.email;
-                
-                if (!userEmail) {
-                    return res.status(400).json({ success: false, message: 'User email not found in token' });
-                }
-                
-                const result = await savedTripsCollection.deleteOne({ 
-                    _id: new ObjectId(id),
-                    userEmail 
-                });
-                
-                if (result.deletedCount === 0) {
-                    return res.status(404).json({ success: false, message: 'Saved trip not found or unauthorized' });
-                }
-                
-                res.json({ success: true, message: "Saved trip deleted successfully" });
             } catch (error) {
                 res.status(500).json({ success: false, message: 'Internal Server Error' });
             }

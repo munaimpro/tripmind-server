@@ -106,6 +106,61 @@ async function run() {
             }
         });
 
+        app.post('/add-trip', async (req: Request, res: Response) => {
+            try {
+                const tripData = req.body;
+                const result = await tripsCollection.insertOne({
+                    ...tripData,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                });
+                res.json({ success: true, data: result });
+            } catch (error) {
+                res.status(500).json({ success: false, message: 'Internal Server Error' });
+            }
+        });
+
+        app.put('/trip/:id', async (req: Request, res: Response) => {
+            try {
+                const { id } = req.params;
+
+                const updateData = req.body;
+
+                delete updateData._id;
+
+                const result = await tripsCollection.updateOne(
+                    { _id: new ObjectId(id) },
+                    {
+                        $set: {
+                            ...updateData,
+                            updatedAt: new Date(),
+                        },
+                    }
+                );
+
+                res.json({
+                    success: true,
+                    data: result,
+                });
+            } catch (error) {
+                console.log(error);
+                res.status(500).json({
+                    success: false,
+                    message: "Internal Server Error",
+                });
+            }
+        });
+
+        app.delete('/delete-trip/:id', async (req: Request, res: Response) => {
+            try {
+                const { id } = req.params;
+                const result = await tripsCollection.deleteOne({ _id: new ObjectId(id) });
+                res.json({ success: true, data: result });
+            } catch (error) {
+                res.status(500).json({ success: false, message: 'Internal Server Error' });
+            }
+        });
+
         app.get('/hotels', async (req: Request, res: Response) => {
             try {
                 const result = await hotelsCollection.find().toArray();
